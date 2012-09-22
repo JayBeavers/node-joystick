@@ -1,0 +1,28 @@
+{
+  "name": "joystick",
+  "description": "Node.js module for reading joystick data under Linux",
+  "version": "0.1.0",
+  "homepage": "https://github.com/JayBeavers/node-joystick.git",
+  "author": {
+    "name": "Jay Beavers",
+    "email": "jay@hikinghomeschoolers.org",
+    "url": "http://jaybeavers.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JayBeavers/node-joystick.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jaybeavers/node-joystick/issues"
+  },
+  "licenses": [
+    {
+      "type": "BSD",
+      "url": "https://github.com/JayBeavers/jaybeavers/node-joystick/blob/master/LICENSE"
+    }
+  ],
+  "main": "joystick",
+  "engines": {
+    "node": ">= 0.8.1"
+  }
+}
