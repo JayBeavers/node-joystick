@@ -2,7 +2,20 @@ var fs = require('fs');
 var events = require('events');
 var util = require('util');
 
-function Joystick(id) {
+// id is the file system index of the joystick (e.g. /dev/input/js0 has id '0')
+
+// deadzone is the amount of sensitivity at the center of the axis to ignore.
+//   Axis reads from -32k to +32k and empirical testing on an XBox360 controller
+//   shows that a good 'dead stick' value is 3500
+// Note that this deadzone algorithm assumes that 'center is zero' which is not generally
+//   the case so you may want to set deadzone === 0 and instead perform some form of
+//   calibration.
+
+// sensitivity is the amount of change in an axis reading before an event will be emitted.
+//   Empirical testing on an XBox360 controller shows that sensitivity is around 350 to remove
+//   noise in the data
+
+function Joystick(id, deadzone, sensitivity) {
 
   var self = this;
 
@@ -10,6 +23,10 @@ function Joystick(id) {
 
   var buffer = new Buffer(8);
   var fd = undefined;
+
+  // Last reading from this axis, used for debouncing events using sensitivty setting
+  var lastAxisValue = [];
+  var lastAxisEmittedValue = [];
 
   events.EventEmitter.call(this);
 
@@ -46,7 +63,32 @@ function Joystick(id) {
     if (err) return self.emit("error", err);
 
     var event = parse(buffer);
-    self.emit(event.type, event);
+
+    if (event.type === 'axis') {
+
+      if (sensitivity) {
+        if (lastAxisValue[event.number] && Math.abs(lastAxisValue[event.number] - event.value) < sensitivity) {
+          // data squelched due to sensitivity, no self.emit
+          var squelch = true;
+        } else {
+          lastAxisValue[event.number] = event.value;
+        }
+      }
+
+      if (deadzone && Math.abs(event.value) < deadzone) {
+        event.value = 0;
+      }
+
+      if (lastAxisEmittedValue[event.number] === event.value) {
+        var squelch = true;
+      } else {
+        lastAxisEmittedValue[event.number] = event.value;
+      }
+    }
+
+    if (!squelch) {
+      self.emit(event.type, event);
+    }
 
     if (fd) startRead();
   };
