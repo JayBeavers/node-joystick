@@ -1,7 +1,7 @@
 {
   "name": "joystick",
   "description": "Node.js module for reading joystick data under Linux",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "homepage": "https://github.com/JayBeavers/node-joystick.git",
   "author": {
     "name": "Jay Beavers",
