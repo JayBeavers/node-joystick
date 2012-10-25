@@ -22,7 +22,7 @@ function Joystick(id, deadzone, sensitivity) {
   this.id = id;
 
   var buffer = new Buffer(8);
-  var fd = undefined;
+  var fd;
 
   // Last reading from this axis, used for debouncing events using sensitivty setting
   var lastAxisValue = [];
@@ -36,12 +36,21 @@ function Joystick(id, deadzone, sensitivity) {
         time : buffer.readUInt32LE(0),
         value: buffer.readInt16LE(4),
         number: buffer[7]
-      }
+      };
       
       var type = buffer[6];
-      if (type & 0x80) event.init = true;
-      if (type & 0x01) event.type = 'button';
-      if (type & 0x02) event.type = 'axis';
+      
+      if (type & 0x80) {
+        event.init = true;
+      }
+
+      if (type & 0x01) {
+        event.type = 'button';
+      }
+
+      if (type & 0x02) {
+        event.type = 'axis';
+      }
 
       event.id = self.id;
       
@@ -50,26 +59,34 @@ function Joystick(id, deadzone, sensitivity) {
 
   function startRead() {
     fs.read(fd, buffer, 0, 8, null, onRead);
-  };
+  }
 
   function onOpen(err, fdOpened) {
-    if (err) return self.emit("error", err);
+
+    if (err) {
+      return self.emit("error", err);
+    }
 
     fd = fdOpened;
     startRead();
-  };
+  }
 
   function onRead(err, bytesRead) {
-    if (err) return self.emit("error", err);
+
+    if (err) {
+      return self.emit("error", err);
+    }
 
     var event = parse(buffer);
+
+    var squelch = false;
 
     if (event.type === 'axis') {
 
       if (sensitivity) {
         if (lastAxisValue[event.number] && Math.abs(lastAxisValue[event.number] - event.value) < sensitivity) {
           // data squelched due to sensitivity, no self.emit
-          var squelch = true;
+          squelch = true;
         } else {
           lastAxisValue[event.number] = event.value;
         }
@@ -80,7 +97,7 @@ function Joystick(id, deadzone, sensitivity) {
       }
 
       if (lastAxisEmittedValue[event.number] === event.value) {
-        var squelch = true;
+        squelch = true;
       } else {
         lastAxisEmittedValue[event.number] = event.value;
       }
@@ -90,8 +107,10 @@ function Joystick(id, deadzone, sensitivity) {
       self.emit(event.type, event);
     }
 
-    if (fd) startRead();
-  };
+    if (fd) {
+      startRead();
+    }
+  }
 
   this.close = function (callback) {
     fs.close(fd, callback);
