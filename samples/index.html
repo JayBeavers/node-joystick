@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+</head>
+<body>
+    <div>
+        <canvas id='foo' width='500' height='500' />
+    </div>
+</body>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="compass.js"></script>
+
+  <script>
+    
+    function drawArrow(direction) {
+          
+        var canvas = document.getElementById('foo');
+        canvas.width = canvas.width;
+        var context = canvas.getContext('2d');
+
+        context.save();
+
+        context.setTransform(1,0,0,1,0,0);
+        context.strokeStyle = 'red';
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        context.lineWidth = 3;
+
+        context.translate(60,60);
+        context.rotate(direction * Math.PI / 180);
+
+        context.beginPath();
+        context.moveTo(0, -50);
+        context.lineTo(-10, -40);
+        context.moveTo(0, -50);
+        context.lineTo(10, -40);
+        context.moveTo(0, -50);
+        context.lineTo(0, 50);
+        context.stroke();
+        context.closePath();
+
+        context.beginPath();
+        context.strokeStyle = 'black';
+        context.moveTo(-5, 0);
+        context.lineTo(5, 0);
+        context.stroke();
+        context.closePath();
+
+        context.restore();
+    };
+    
+    var socket = io.connect('http://localhost');
+    socket.on('magnometer', function (data) {
+      console.log(data);
+      drawArrow(data.heading);
+    });
+    
+    </script>
+</html>
