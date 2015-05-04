@@ -37,9 +37,9 @@ function Joystick(id, deadzone, sensitivity) {
         value: buffer.readInt16LE(4),
         number: buffer[7]
       };
-      
+
       var type = buffer[6];
-      
+
       if (type & 0x80) {
         event.init = true;
       }
@@ -53,7 +53,7 @@ function Joystick(id, deadzone, sensitivity) {
       }
 
       event.id = self.id;
-      
+
       return event;
   }
 
@@ -65,10 +65,12 @@ function Joystick(id, deadzone, sensitivity) {
 
     if (err) {
       return self.emit("error", err);
-    }
+    }else {
+      self.emit("ready");
 
-    fd = fdOpened;
-    startRead();
+      fd = fdOpened;
+      startRead();
+    }
   }
 
   function onRead(err, bytesRead) {
