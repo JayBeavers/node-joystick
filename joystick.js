@@ -1,44 +1,41 @@
-var fs = require('fs');
-var events = require('events');
-var util = require('util');
+const fs = require('fs');
+const events = require('events');
+/*
+ *  id is the file system index of the joystick (e.g. /dev/input/js0 has id '0')
+ *
+ *  deadzone is the amount of sensitivity at the center of the axis to ignore.
+ *    Axis reads from -32k to +32k and empirical testing on an XBox360 controller
+ *    shows that a good 'dead stick' value is 3500
+ *  Note that this deadzone algorithm assumes that 'center is zero' which is not generally
+ *    the case so you may want to set deadzone === 0 and instead perform some form of
+ *    calibration.
+ *
+ *  sensitivity is the amount of change in an axis reading before an event will be emitted.
+ *    Empirical testing on an XBox360 controller shows that sensitivity is around 350 to remove
+ *    noise in the data
+ */
 
-// id is the file system index of the joystick (e.g. /dev/input/js0 has id '0')
+module.exports = class Joystick extends events {
+  constructor (id, deadzone, sensitivity) {
+    super();
 
-// deadzone is the amount of sensitivity at the center of the axis to ignore.
-//   Axis reads from -32k to +32k and empirical testing on an XBox360 controller
-//   shows that a good 'dead stick' value is 3500
-// Note that this deadzone algorithm assumes that 'center is zero' which is not generally
-//   the case so you may want to set deadzone === 0 and instead perform some form of
-//   calibration.
+    const buffer = new Buffer(8);
+    let fd;
 
-// sensitivity is the amount of change in an axis reading before an event will be emitted.
-//   Empirical testing on an XBox360 controller shows that sensitivity is around 350 to remove
-//   noise in the data
+    // Last reading from this axis, used for debouncing events using sensitivty setting
+    let lastAxisValue = [];
+    let lastAxisEmittedValue = [];
 
-function Joystick(id, deadzone, sensitivity) {
+    events.EventEmitter.call(this);
 
-  var self = this;
-
-  this.id = id;
-
-  var buffer = new Buffer(8);
-  var fd;
-
-  // Last reading from this axis, used for debouncing events using sensitivty setting
-  var lastAxisValue = [];
-  var lastAxisEmittedValue = [];
-
-  events.EventEmitter.call(this);
-
-  function parse(buffer) {
-
-      var event =  {
+    const parse = (buffer) => {
+      const event =  {
         time : buffer.readUInt32LE(0),
         value: buffer.readInt16LE(4),
         number: buffer[7]
       };
 
-      var type = buffer[6];
+      const type = buffer[6];
 
       if (type & 0x80) {
         event.init = true;
@@ -52,76 +49,59 @@ function Joystick(id, deadzone, sensitivity) {
         event.type = 'axis';
       }
 
-      event.id = self.id;
+      event.id = id;
 
       return event;
-  }
+    };
 
-  function startRead() {
-    fs.read(fd, buffer, 0, 8, null, onRead);
-  }
+    const startRead = () => {
+      fs.read(fd, buffer, 0, 8, null, onRead);
+    };
 
-  function onOpen(err, fdOpened) {
+    const onOpen = (err, fdOpened) => {
+      if (err) return this.emit('error', err);
+      else {
+        this.emit('ready');
 
-    if (err) {
-      return self.emit("error", err);
-    }else {
-      self.emit("ready");
+        fd = fdOpened;
+        startRead();
+      }
+    };
 
-      fd = fdOpened;
-      startRead();
-    }
-  }
+    const onRead = (err, bytesRead) => {
+      if (err) return this.emit('error', err);
+      const event = parse(buffer);
 
-  function onRead(err, bytesRead) {
+      let squelch = false;
 
-    if (err) {
-      return self.emit("error", err);
-    }
+      if (event.type === 'axis') {
+        if (sensitivity) {
+          if (lastAxisValue[event.number] && Math.abs(lastAxisValue[event.number] - event.value) < sensitivity) {
+            // data squelched due to sensitivity, no self.emit
+            squelch = true;
+          } else {
+            lastAxisValue[event.number] = event.value;
+          }
+        }
 
-    var event = parse(buffer);
+        if (deadzone && Math.abs(event.value) < deadzone) event.value = 0;
 
-    var squelch = false;
-
-    if (event.type === 'axis') {
-
-      if (sensitivity) {
-        if (lastAxisValue[event.number] && Math.abs(lastAxisValue[event.number] - event.value) < sensitivity) {
-          // data squelched due to sensitivity, no self.emit
+        if (lastAxisEmittedValue[event.number] === event.value) {
           squelch = true;
         } else {
-          lastAxisValue[event.number] = event.value;
+          lastAxisEmittedValue[event.number] = event.value;
         }
       }
 
-      if (deadzone && Math.abs(event.value) < deadzone) {
-        event.value = 0;
-      }
+      if (!squelch) this.emit(event.type, event);
+      if (fd) startRead();
+    };
 
-      if (lastAxisEmittedValue[event.number] === event.value) {
-        squelch = true;
-      } else {
-        lastAxisEmittedValue[event.number] = event.value;
-      }
-    }
+    this.close = function (callback) {
+      fs.close(fd, callback);
+      fd = undefined;
+    };
 
-    if (!squelch) {
-      self.emit(event.type, event);
-    }
-
-    if (fd) {
-      startRead();
-    }
+    fs.open('/dev/input/js' + id, 'r', onOpen);
   }
-
-  this.close = function (callback) {
-    fs.close(fd, callback);
-    fd = undefined;
-  };
-
-  fs.open("/dev/input/js" + id, "r", onOpen);
-}
-
-util.inherits(Joystick, events.EventEmitter);
-
-module.exports = Joystick;
+};
