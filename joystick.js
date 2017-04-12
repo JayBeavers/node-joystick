@@ -26,8 +26,6 @@ module.exports = class Joystick extends events {
     let lastAxisValue = [];
     let lastAxisEmittedValue = [];
 
-    events.EventEmitter.call(this);
-
     const parse = (buffer) => {
       const event =  {
         time : buffer.readUInt32LE(0),
